@@ -5,13 +5,24 @@ source("utils.R")
 
 # Cargar datos
 cat("Cargando datos...\n")
-data_path <- file.path("..", "data_clean.csv")
-if (!file.exists(data_path)) {
-  data_path <- "data_clean.csv"
+data_path_candidates <- c(
+  Sys.getenv("DATA_PATH", unset = NA_character_),
+  file.path("..", "data", "data_clean.csv"),
+  file.path("data", "data_clean.csv"),
+  "data_clean.csv"
+)
+
+data_path_candidates <- data_path_candidates[!is.na(data_path_candidates)]
+data_path <- NULL
+for (path in data_path_candidates) {
+  if (file.exists(path)) {
+    data_path <- path
+    break
+  }
 }
 
-if (!file.exists(data_path)) {
-  stop("No se encuentra el archivo data_clean.csv")
+if (is.null(data_path)) {
+  stop("No se encuentra el archivo data_clean.csv (esperado en data/data_clean.csv)")
 }
 
 instituciones <- read.csv(data_path, stringsAsFactors = FALSE, encoding = "UTF-8")

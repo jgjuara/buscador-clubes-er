@@ -11,10 +11,11 @@ library(leaflet)
 source("utils.R")
 
 # Cargar datos
-data_path <- file.path(".", "data_clean.csv")
-# if (!file.exists(data_path)) {
-#   data_path <- "data_clean.csv"
-# }
+data_path <- Sys.getenv("DATA_PATH", unset = file.path("data", "data_clean.csv"))
+
+if (!file.exists(data_path)) {
+  stop(sprintf("No se encuentra el dataset en '%s'", data_path))
+}
 
 instituciones <- read.csv(data_path, stringsAsFactors = FALSE, encoding = "UTF-8")
 

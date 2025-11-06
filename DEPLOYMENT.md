@@ -25,10 +25,10 @@ install.packages(c(
 
 ### Datos
 
-**Archivo requerido:** `data_clean.csv`
+**Archivo requerido:** `data/data_clean.csv`
 
 - **Formato:** CSV con encoding UTF-8, separador coma
-- **Ubicación:** Directorio raíz del proyecto (un nivel arriba de `app/`)
+- **Ubicación:** Directorio `data/` en la raíz del proyecto
 - **Tamaño:** ~300 KB (304 KB en versión actual)
 - **Columnas críticas:**
   - `nombre_institucion`: Nombre de la institución
@@ -51,6 +51,77 @@ install.packages(c(
 - jQuery (incluido con Shiny)
 - Leaflet tiles del IGN Argentina (Instituto Geográfico Nacional)
 
+## Despliegue con Docker Compose
+
+### Requisitos
+
+- Docker 24 o superior
+- Docker Compose V2 (incluido en Docker Desktop o en distribuciones recientes de Docker CLI)
+
+### Preparación del entorno
+
+```bash
+# Clonar repositorio
+git clone https://github.com/[usuario]/buscador-clubes-er.git
+cd buscador-clubes-er
+
+# Crear directorio de datos persistentes
+mkdir -p data
+
+# Copiar dataset al volumen local
+cp /ruta/al/original/data_clean.csv data/data_clean.csv
+```
+
+### Construcción y ejecución
+
+```bash
+# Construir imagen y levantar contenedor (primera vez)
+docker compose up --build
+
+# Levantar en segundo plano usando la imagen existente
+docker compose up -d
+
+# Detener y limpiar contenedor y red (mantiene el volumen)
+docker compose down
+```
+
+La aplicación estará disponible en `http://localhost:3838`. El conjunto de datos persiste en el volumen `./data`, montado dentro del contenedor en `/srv/shiny-server/app/data`.
+
+### Variables de entorno
+
+- `DATA_PATH`: definida en `docker-compose.yml` como `/srv/shiny-server/app/data/data_clean.csv`. Cambia el valor solo si renombras el archivo dentro del volumen.
+
+### Mantenimiento del volumen de datos
+
+```bash
+# Actualizar dataset
+docker compose stop
+cp /ruta/nueva/data_clean.csv data/data_clean.csv
+docker compose start
+
+# Respaldar datos
+tar -czf backup-data.tar.gz data/
+
+# Recrear volumen desde cero
+docker compose down
+rm -rf data
+mkdir data
+# volver a copiar data_clean.csv antes de levantar nuevamente
+```
+
+### Logs y diagnóstico
+
+```bash
+# Ver logs en tiempo real
+docker compose logs -f
+
+# Abrir shell dentro del contenedor
+docker compose exec shiny-app bash
+
+# Confirmar que el dataset está disponible
+docker compose exec shiny-app ls -l /srv/shiny-server/app/data
+```
+
 ## Despliegue en Ubuntu 22 Server con Shiny Server
 
 ### Requisitos del Sistema
@@ -58,8 +129,8 @@ install.packages(c(
 - Ubuntu 22.04 LTS
 - R >= 4.0.0
 - Shiny Server (Open Source o Pro)
-- 2 GB RAM mínimo
-- 10 GB espacio en disco
+- 4 GB RAM mínimo
+- 20 GB espacio en disco
 
 ### Instalación de R y Shiny Server
 
@@ -104,11 +175,12 @@ sudo mkdir -p /srv/shiny-server/buscador-clubes
 
 # Copiar archivos
 sudo cp -r app/* /srv/shiny-server/buscador-clubes/
-sudo cp data_clean.csv /srv/shiny-server/
+sudo mkdir -p /srv/shiny-server/buscador-clubes/data
+sudo cp data/data_clean.csv /srv/shiny-server/buscador-clubes/data/
 
 # Ajustar permisos
 sudo chown -R shiny:shiny /srv/shiny-server/buscador-clubes
-sudo chown shiny:shiny /srv/shiny-server/data_clean.csv
+sudo chown shiny:shiny /srv/shiny-server/buscador-clubes/data/data_clean.csv
 sudo chmod -R 755 /srv/shiny-server/buscador-clubes
 ```
 
@@ -337,11 +409,11 @@ https://[usuario].github.io/[repo]/
 
 ### Actualización de Datos
 
-Para actualizar `data_clean.csv`:
+Para actualizar `data/data_clean.csv`:
 
 ```bash
 # Reemplazar archivo en repositorio
-git add data_clean.csv
+git add data/data_clean.csv
 git commit -m "Update data"
 git push origin main
 
@@ -355,12 +427,13 @@ git push origin main
 - **Sistema de archivos:** No hay acceso a archivos locales del servidor
 - **Bases de datos:** No puede conectarse a bases de datos locales
 - **Performance:** Depende del navegador del usuario
+- **Privacidad:** Los datos permanecen en el navegador del usuario
+
 
 ### Ventajas de Shinylive
 
 - **Sin servidor:** Hosting gratuito, sin costos de infraestructura
 - **Escalabilidad:** Ilimitados usuarios concurrentes
-- **Privacidad:** Los datos permanecen en el navegador del usuario
 - **Distribución:** Funciona offline después de la primera carga
 
 ## Troubleshooting
@@ -375,7 +448,7 @@ sudo tail -f /var/log/shiny-server/*.log
 ls -la /srv/shiny-server/buscador-clubes
 
 # Verificar que data_clean.csv es accesible
-sudo -u shiny cat /srv/shiny-server/data_clean.csv | head
+sudo -u shiny cat /srv/shiny-server/buscador-clubes/data/data_clean.csv | head
 ```
 
 ### Shiny Server: Error de paquetes

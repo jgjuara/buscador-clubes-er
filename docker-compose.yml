@@ -1,0 +1,12 @@
+services:
+  shiny-app:
+    build: .
+    container_name: buscador-clubes
+    ports:
+      - "3838:3838"
+    environment:
+      - DATA_PATH=/srv/shiny-server/app/data/data_clean.csv
+    volumes:
+      - ./data:/srv/shiny-server/app/data
+    restart: unless-stopped
+

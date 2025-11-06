@@ -19,7 +19,7 @@ Esta herramienta permite explorar un catálogo de instituciones deportivas media
 
 ### Capacidades de Actualización
 
-- **Datos**: Actualizar `data_clean.csv` con nuevas instituciones o información modificada
+- **Datos**: Actualizar `data/data_clean.csv` con nuevas instituciones o información modificada
 - **Diseño**: Cambiar tema Bootstrap modificando parámetro `bootswatch` en `app.R`
 - **Scoring**: Ajustar pesos de relevancia en función `calculate_relevance_score()` en `utils.R`
 - **Columnas**: Personalizar campos mostrados en función `format_for_display()` en `utils.R`
@@ -28,13 +28,14 @@ Esta herramienta permite explorar un catálogo de instituciones deportivas media
 ## Estructura del Proyecto
 
 ```
-app/
+./
 ├── app.R                 # Aplicación principal Shiny
 ├── utils.R               # Funciones de búsqueda y procesamiento
+├── data/
+│   └── data_clean.csv   # Dataset de instituciones
 ├── www/
 │   ├── chips.js         # Lógica JavaScript para chips
 │   └── custom.css       # Estilos personalizados
-data_clean.csv           # Dataset de instituciones (directorio raíz)
 ```
 
 ## Uso Rápido
@@ -43,7 +44,6 @@ data_clean.csv           # Dataset de instituciones (directorio raíz)
 
 ```r
 # Desde R/RStudio
-setwd("app")
 shiny::runApp()
 ```
 
