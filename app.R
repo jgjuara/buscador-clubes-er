@@ -152,10 +152,79 @@ server <- function(input, output, session) {
   
   # Reactive: Términos de búsqueda desde JavaScript
   search_terms <- reactive({
-    req(input$search_chips)
-    input$search_chips
+    terms <- input$search_chips
+    if (is.null(terms)) {
+      character(0)
+    } else {
+      terms
+    }
   })
   
+  # Helpers mapa -------------------------------------------------------------
+  default_view <- list(lng = -59.2, lat = -33.2, zoom = 9)
+
+  build_base_map <- function() {
+    leaflet() %>%
+      addTiles(
+        urlTemplate = "https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/mapabase_gris@EPSG%3A3857@png/{z}/{x}/{-y}.png",
+        attribution = '&copy; <a href="https://www.ign.gob.ar/">Instituto Geográfico Nacional</a>',
+        options = tileOptions(tms = TRUE)
+      ) %>%
+      setView(lng = default_view$lng, lat = default_view$lat, zoom = default_view$zoom)
+  }
+
+  build_popups <- function(map_data) {
+    paste0(
+      "<b>", map_data$nombre_institucion, "</b><br/>",
+      "<i>", map_data$tipo_de_institucion, "</i><br/>",
+      "<hr style='margin: 5px 0;' />",
+      "<b>Disciplinas:</b> ", ifelse(is.na(map_data$disciplinas), "N/A", map_data$disciplinas), "<br/>",
+      "<b>Municipio:</b> ", map_data$municipio_comuna_dom_real, "<br/>",
+      "<b>Dirección:</b> ",
+      ifelse(is.na(map_data$calle_dom_real), "", paste0(map_data$calle_dom_real, " ")),
+      ifelse(is.na(map_data$nro_dom_real), "", map_data$nro_dom_real)
+    )
+  }
+
+  populate_map <- function(map_object, map_data) {
+    if (nrow(map_data) == 0) {
+      if (inherits(map_object, "leaflet_proxy")) {
+        return(
+          map_object %>%
+            clearMarkers() %>%
+            setView(lng = default_view$lng, lat = default_view$lat, zoom = default_view$zoom)
+        )
+      }
+      return(map_object)
+    }
+
+    popups <- build_popups(map_data)
+
+    if (inherits(map_object, "leaflet_proxy")) {
+      map_object <- map_object %>% clearMarkers()
+    }
+
+    map_object %>%
+      addMarkers(
+        data = map_data,
+        lng = ~longitud,
+        lat = ~latitud,
+        popup = popups,
+        label = ~nombre_institucion,
+        labelOptions = labelOptions(
+          style = list("font-weight" = "normal", "padding" = "3px 8px"),
+          textsize = "13px",
+          direction = "auto"
+        )
+      ) %>%
+      fitBounds(
+        lng1 = min(map_data$longitud),
+        lat1 = min(map_data$latitud),
+        lng2 = max(map_data$longitud),
+        lat2 = max(map_data$latitud)
+      )
+  }
+
   # Reactive: Datos filtrados según búsqueda
   filtered_data <- reactive({
     terms <- search_terms()
@@ -229,14 +298,8 @@ server <- function(input, output, session) {
   
   # Output: Mapa interactivo
   output$map <- renderLeaflet({
-    # Mapa base - IGN Argentina
-    leaflet() %>%
-      addTiles(
-        urlTemplate = "https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/mapabase_gris@EPSG%3A3857@png/{z}/{x}/{-y}.png",
-        attribution = '&copy; <a href="https://www.ign.gob.ar/">Instituto Geográfico Nacional</a>',
-        options = tileOptions(tms = TRUE)
-      ) %>%
-      setView(lng = -59.2, lat = -33.2, zoom = 9)
+    map_data <- prepare_map_data(filtered_data())
+    populate_map(build_base_map(), map_data)
   })
   
   # Observer: Actualizar mapa con selección
@@ -249,49 +312,10 @@ server <- function(input, output, session) {
       map_data <- prepare_map_data(data)
     } else {
       # Hay selección: mostrar solo las seleccionadas
-      map_data <- prepare_map_data(data[selected_rows, ])
+      map_data <- prepare_map_data(data[selected_rows, , drop = FALSE])
     }
     
-    if (nrow(map_data) == 0) {
-      # Sin datos para mapear
-      leafletProxy("map") %>%
-        clearMarkers() %>%
-        setView(lng = -59.2, lat = -33.2, zoom = 9)
-      return()
-    }
-    
-    # Crear popups informativos
-    popups <- paste0(
-      "<b>", map_data$nombre_institucion, "</b><br/>",
-      "<i>", map_data$tipo_de_institucion, "</i><br/>",
-      "<hr style='margin: 5px 0;'/>",
-      "<b>Disciplinas:</b> ", ifelse(is.na(map_data$disciplinas), "N/A", map_data$disciplinas), "<br/>",
-      "<b>Municipio:</b> ", map_data$municipio_comuna_dom_real, "<br/>",
-      "<b>Dirección:</b> ", 
-      ifelse(is.na(map_data$calle_dom_real), "", paste0(map_data$calle_dom_real, " ")),
-      ifelse(is.na(map_data$nro_dom_real), "", map_data$nro_dom_real)
-    )
-    
-    # Actualizar mapa
-    leafletProxy("map", data = map_data) %>%
-      clearMarkers() %>%
-      addMarkers(
-        lng = ~longitud,
-        lat = ~latitud,
-        popup = popups,
-        label = ~nombre_institucion,
-        labelOptions = labelOptions(
-          style = list("font-weight" = "normal", "padding" = "3px 8px"),
-          textsize = "13px",
-          direction = "auto"
-        )
-      ) %>%
-      fitBounds(
-        lng1 = min(map_data$longitud), 
-        lat1 = min(map_data$latitud),
-        lng2 = max(map_data$longitud), 
-        lat2 = max(map_data$latitud)
-      )
+    populate_map(leafletProxy("map"), map_data)
   })
 }
 
